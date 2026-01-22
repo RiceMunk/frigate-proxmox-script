@@ -25,7 +25,7 @@ Optimized for the **Beelink S12** (Intel N95/N100), but compatible with any Inte
 - **Proxmox VE** 7.0 or later
 - **Root access** on Proxmox host
 - **Intel iGPU, NVIDIA GPU, or AMD GPU** (recommended for low CPU usage)
-- **Google Coral TPU** (optional, but recommended for best detection performance)
+- **Google Coral TPU** (optional)
 
 ## Quick Start
 

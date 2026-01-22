@@ -296,8 +296,13 @@ configure_container() {
     case $version_choice in
         2) 
            echo -n "Fetching latest beta version... "
-           LATEST_BETA=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases | grep -B 15 '"prerelease": true' | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
-           FRIGATE_VERSION="${LATEST_BETA:-0.17.0-beta2}"
+           # Use || true to prevent script exit if grep finds nothing (set -e is active)
+           LATEST_BETA=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases | grep -B 15 '"prerelease": true' | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4 | sed 's/^v//' || true)
+           # Fallback if detection failed
+           if [ -z "$LATEST_BETA" ]; then
+               LATEST_BETA="0.17.0-beta2"
+           fi
+           FRIGATE_VERSION="$LATEST_BETA"
            echo "$FRIGATE_VERSION"
            ;;
         3) read -p "Enter custom tag (e.g., 0.14.1): " custom_tag

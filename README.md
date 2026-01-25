@@ -15,7 +15,7 @@ Optimized for the **Beelink S12** (Intel N95/N100), but compatible with any Inte
 ✅ **Zero-Config Setup** - Smart hardware detection avoids manual indexing  
 ✅ **Intel, NVIDIA, & AMD** - Broad hardware acceleration support via VAAPI/NVDEC  
 ✅ **Hardware Auto-Detection** - Automatically identifies CPU, GPU, and Coral TPU  
-✅ **Reolink Optimized** - Built-in templates for the notoriously tricky Reolink cameras  
+✅ **Hardware Auto-Detection** - Automatically identifies CPU, GPU, and Coral TPU  
 ✅ **Easy Updates** - Simple Docker pulls to keep your NVR current  
 ✅ **Home Assistant Ready** - Default ports and paths pre-configured  
 ✅ **Add-ons Included** - Optional SSH & Samba for easy file management  
@@ -156,14 +156,6 @@ nano /mnt/frigate/config.yml
 └── storage/               # Recordings and snapshots
 ```
 
-### Reolink Cameras
-
-If you have Reolink cameras, the script offers an optimized configuration. Reolink cameras often work best with the HTTP-FLV stream for stability.
-
-The script will add a `go2rtc` section and a camera template using the recommended paths:
-- **Main Stream**: `rtsp://admin:password@camera-ip:554/h264Preview_01_main`
-- **Sub Stream (FLV)**: `http://camera-ip/flv?user=admin&password=yourpassword&channel=0&stream=0`
-
 ## Hardware Acceleration
 
 ## How Smart Detection Works
@@ -177,7 +169,6 @@ The script performs a "pre-flight" scan of your Proxmox host to determine the be
 3.  **Detector Optimization**:
     - If a **Google Coral (USB or PCIe)** is found, it's set as the primary detector.
     - If no Coral is found, it utilizes **OpenVINO** (favoring the iGPU if available, otherwise falling back to CPU).
-4.  **Reolink Stability**: If you select Reolink support, it pre-configures **Go2RTC** using the HTTP-FLV stream, which bypasses common RTSP timeout issues found on many Reolink models.
 
 ### Verify Hardware Acceleration
 

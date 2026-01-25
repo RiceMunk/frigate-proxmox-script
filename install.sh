@@ -11,7 +11,7 @@ set -euo pipefail
 # GLOBAL VARIABLES
 # ============================================================================
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="/tmp/frigate-install-$(date +%Y%m%d-%H%M%S).log"
 DRY_RUN=false
@@ -49,7 +49,7 @@ ENABLE_SSH="no"
 SSH_USER="frigate"
 SSH_PASSWORD=""
 ENABLE_SAMBA="no"
-IS_REOLINK="no"
+ENABLE_SAMBA="no"
 ROOT_PASSWORD=""
 
 # Hardware Detection Result Strings
@@ -312,10 +312,6 @@ configure_container() {
     esac
     
     echo ""
-    read -p "Do you have Reolink cameras? (y/N): " is_reolink
-    if [[ "$is_reolink" =~ ^[Yy]$ ]]; then
-        IS_REOLINK="yes"
-    fi
     
     echo ""
     echo ""
@@ -417,7 +413,8 @@ show_configuration_summary() {
     echo "Frigate Settings:"
     echo "  Docker Image:    ghcr.io/blakeblackshear/frigate:$FRIGATE_VERSION"
     echo "  HW Accel:        $ENABLE_IGPU ($DETECTED_GPU)"
-    echo "  Reolink Support: $IS_REOLINK"
+    echo "  HW Accel:        $ENABLE_IGPU ($DETECTED_GPU)"
+    echo "  Web Port:        $FRIGATE_PORT"
     echo "  Web Port:        $FRIGATE_PORT"
     if [ "$ENABLE_SSH" = "yes" ]; then
         echo "  SSH User:        $SSH_USER"
@@ -647,37 +644,16 @@ create_frigate_config() {
     log_step "Creating initial Frigate configuration..."
     
     local hwaccel_config=""
-    if [ "$ENABLE_IGPU" = "yes" ] && [ "$GPU_PRESET" != "none" ]; then
-        hwaccel_config="  hwaccel_args: $GPU_PRESET"
-    fi
 
     local go2rtc_config=""
-    if [ "$IS_REOLINK" = "yes" ]; then
-        go2rtc_config="go2rtc:
-  streams:
-    reolink_camera: # Example Reolink stream
-      - ffmpeg:http://camera-ip/flv?user=admin&password=yourpassword&channel=0&stream=0"
-    fi
-
-    local camera_template=""
-    if [ "$IS_REOLINK" = "yes" ]; then
-        camera_template="  reolink_camera:
-    enabled: false
-    ffmpeg:
-      inputs:
-        - path: rtsp://admin:password@camera-ip:554/h264Preview_01_main
-          roles:
-            - detect
-            - record"
-    else
-        camera_template="  dummy_camera:
+    
+    local camera_template="  dummy_camera:
     enabled: false
     ffmpeg:
       inputs:
         - path: rtsp://user:password@camera-ip:554/stream
           roles:
             - detect"
-    fi
 
     local detector_config="detectors:
   ov:

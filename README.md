@@ -7,7 +7,7 @@ An automated, Docker-based installation script for deploying [Frigate NVR](https
 2. Installs **Docker** and **Docker Compose**
 3. Deploys **Frigate NVR** with Intel iGPU hardware acceleration
 
-Optimized for the **Beelink S12** (Intel N95/N100), but compatible with any Intel-based Proxmox host.
+Optimized for the **Beelink S12** (Intel N95/N100), but compatible with most Intel-based Proxmox host.
 
 ![](images/1.png)
 ![](images/2.png)
@@ -143,7 +143,7 @@ nano /mnt/frigate/config.yml
 - **Authentication**: Guest access enabled (no password required by default)
 - **Password**: If you configured Samba during installation, you can also authenticate with:
   - Username: `root`
-  - Password: The password you set during installation (same as SSH password if SSH was enabled, or the separate Samba password you provided)
+  - Password: The root password you set during installation
 - **Permissions**: Full read/write access
 - **User**: All files created as `root` user automatically
 
@@ -179,18 +179,32 @@ pct exec <CT_ID> -- ls -l /dev/dri/renderD128
 
 # View Frigate logs for hardware acceleration status
 pct exec <CT_ID> -- docker logs frigate 2>&1 | grep -i vaapi
+
+# View GPU usage
+sudo intel_gpu_top
 ```
 
 ### Example Config with Hardware Acceleration
 
 ```yaml
 ffmpeg:
-  hwaccel_args: preset-vaapi
+  hwaccel_args: preset-intel-qsv-h264
 
 detectors:
   ov:
     type: openvino
-    device: GPU  # Uses Intel iGPU for object detection
+    device: GPU
+    model_path: /openvino-model/ssdlite_mobilenet_v2.xml
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+detect:
+  enabled: true
 ```
 
 <details>

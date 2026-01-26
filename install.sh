@@ -734,6 +734,9 @@ setup_ssh() {
     else
         # Just set root password
         execute_in_container "echo 'root:$SSH_PASSWORD' | chpasswd"
+        # Enable root login in sshd_config
+        execute_in_container "sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config"
+        execute_in_container "sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config"  
         log "Using existing root user"
     fi
     

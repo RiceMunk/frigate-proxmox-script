@@ -45,7 +45,7 @@ wget https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/inst
 bash install.sh
 ```
 
-**Installation takes ~10 minutes**
+**Installation takes ~5 minutes**
 
 ## Usage
 

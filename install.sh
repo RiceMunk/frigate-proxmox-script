@@ -570,10 +570,13 @@ configure_igpu_passthrough() {
 lxc.cgroup2.devices.allow: c 226:0 rwm
 lxc.cgroup2.devices.allow: c 226:128 rwm
 lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+
+# Allow unrestricted Apparmor access (required for sysctl and device passthrough)
+lxc.apparmor.profile = unconfined
 EOF
-        log_success "iGPU passthrough configured in $lxc_conf"
+        log_success "iGPU passthrough and Apparmor profile configured in $lxc_conf"
     else
-        log_dry_run "Add iGPU passthrough configuration to $lxc_conf"
+        log_dry_run "Add iGPU passthrough and Apparmor configuration to $lxc_conf"
     fi
 }
 

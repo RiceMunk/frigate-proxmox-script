@@ -250,8 +250,63 @@ configure_container() {
     read -p "Enter RAM in MB (default: 2048): " input_ram
     CT_RAM="${input_ram:-2048}"
     
+    # Storage Pool Selection
+    echo ""
+    log_step "Storage Configuration"
+    
+    # Get list of storages that support images
+    STORAGE_OPTIONS=$(pvesm status -content images 2>/dev/null | awk 'NR>1 {print $1}')
+    
+    if [ -z "$STORAGE_OPTIONS" ]; then
+        log_warn "Could not detect storage pools automatically. Defaulting to: $CT_STORAGE"
+    else
+        echo "Available storage pools:"
+        select pool in $STORAGE_OPTIONS "Custom"; do
+            case $pool in
+                Custom)
+                    read -p "Enter custom storage pool name: " CT_STORAGE
+                    break
+                    ;;
+                *)
+                    if [ -n "$pool" ]; then
+                        CT_STORAGE="$pool"
+                        log "Selected storage pool: $CT_STORAGE"
+                        break
+                    fi
+                    ;;
+            esac
+        done
+    fi
+
+    echo ""
     read -p "Enter disk size in GB (default: 10): " input_disk
     CT_DISK="${input_disk:-10}"
+    
+    # Optional Separate Recordings Disk
+    echo ""
+    read -p "Add a separate disk for recordings? (y/N): " add_recordings_disk
+    if [[ "$add_recordings_disk" =~ ^[Yy]$ ]]; then
+        ADD_EXTRA_DISK=true
+        echo "Select storage pool for recordings:"
+        select pool in $STORAGE_OPTIONS "Custom"; do
+            case $pool in
+                Custom)
+                    read -p "Enter custom storage pool name: " EXTRA_DISK_STORAGE
+                    break
+                    ;;
+                *)
+                    if [ -n "$pool" ]; then
+                        EXTRA_DISK_STORAGE="$pool"
+                        break
+                    fi
+                    ;;
+            esac
+        done
+        read -p "Enter recordings disk size in GB (default: 50): " input_extra_disk
+        EXTRA_DISK_SIZE="${input_extra_disk:-50}"
+    else
+        ADD_EXTRA_DISK=false
+    fi
     
     echo ""
     echo "Network Configuration:"
@@ -400,6 +455,9 @@ show_configuration_summary() {
     echo "  RAM:             ${CT_RAM}MB"
     echo "  Disk:            ${CT_DISK}GB"
     echo "  Storage:         $CT_STORAGE"
+    if [ "$ADD_EXTRA_DISK" = true ]; then
+        echo "  Recordings:      ${EXTRA_DISK_SIZE}GB on $EXTRA_DISK_STORAGE"
+    fi
     echo "  Network Bridge:  $CT_BRIDGE"
     echo "  Network Type:    $CT_NETWORK_TYPE"
     if [ "$CT_NETWORK_TYPE" = "static" ]; then
@@ -475,15 +533,23 @@ create_lxc_container() {
         --rootfs $CT_STORAGE:$CT_DISK \
         --net0 $net_config \
         --unprivileged 0 \
-        --features nesting=1 \
+        --features nesting=1,keyctl=1,fuse=1 \
         --onboot 1 \
         --start 0"
     
     if [ "$DRY_RUN" = false ]; then
         eval "$pct_cmd" 2>&1 | tee -a "$LOG_FILE" || error_exit "Failed to create container"
         log_success "Container $CT_ID created"
+        
+        if [ "$ADD_EXTRA_DISK" = true ]; then
+            log "Adding recordings disk: ${EXTRA_DISK_SIZE}GB on $EXTRA_DISK_STORAGE"
+            pct set "$CT_ID" -mp0 "$EXTRA_DISK_STORAGE:$EXTRA_DISK_SIZE,mp=/opt/frigate/storage" 2>&1 | tee -a "$LOG_FILE" || log_error "Failed to add recordings disk"
+        fi
     else
         log_dry_run "$pct_cmd"
+        if [ "$ADD_EXTRA_DISK" = true ]; then
+            log_dry_run "pct set $CT_ID -mp0 $EXTRA_DISK_STORAGE:$EXTRA_DISK_SIZE,mp=/opt/frigate/storage"
+        fi
     fi
 }
 

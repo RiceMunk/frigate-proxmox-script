@@ -253,15 +253,20 @@ pct exec <CT_ID> -- docker logs frigate 2>&1 | grep -i error
 
 ## Updating Frigate
 
+1. Edit docker-compose.yml file to change the image tag to the desired version. i.e. ```image: ghcr.io/blakeblackshear/frigate:0.17.0-rc1```
+
+2. Run the following commands:
+
 ```bash
 # Pull the latest image
 pct exec <CT_ID> -- docker compose -f /opt/frigate/docker-compose.yml pull
 
 # Restart with new image
 pct exec <CT_ID> -- docker compose -f /opt/frigate/docker-compose.yml up -d
-
-# Verify new version
-pct exec <CT_ID> -- docker exec frigate cat /VERSION
+```
+3. Verify new version
+```bash
+http://frigate-ip-address:5000/api/version
 ```
 
 ## Uninstallation

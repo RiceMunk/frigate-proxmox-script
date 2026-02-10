@@ -193,6 +193,12 @@ check_hardware() {
         GPU_PRESET="preset-nvidia"
     fi
     
+    # Verify driver existence on host
+    if [ "$DETECTED_GPU" != "none" ] && [[ "$DETECTED_GPU" == *"Intel"* ]] && [ ! -d "/dev/dri" ]; then
+        log_warn "GPU detected but /dev/dri not found! Check BIOS and host drivers."
+        DETECTED_GPU="none"
+    fi
+    
     if [ "$DETECTED_GPU" != "none" ]; then
         log_success "Detected GPU: $DETECTED_GPU"
     else
@@ -698,6 +704,8 @@ $device_config
     environment:
       - FRIGATE_RTSP_PASSWORD=password
       - CONFIG_FILE=/config/config.yml
+    cap_add:
+      - CAP_PERFMON
     shm_size: "256mb"
 EOF
         log_success "docker-compose.yml created"
@@ -1098,10 +1106,20 @@ main() {
         echo ""
         log "Installation log saved to: $LOG_FILE"
     else
-        log_success "Dry-run complete! No changes were made."
-        echo ""
         echo "To perform the actual installation, run:"
         echo "  $0"
+    fi
+    
+    # Final Verification
+    if [ "$DRY_RUN" = false ] && [ "$ENABLE_IGPU" = "yes" ]; then
+        echo ""
+        log_step "Verifying hardware acceleration..."
+        if pct exec "$CT_ID" -- ls -l /dev/dri/renderD128 &>/dev/null; then
+            log_success "Hardware acceleration device confirmed inside container."
+        else
+            log_error "Hardware acceleration device NOT found inside container!"
+            log_warn "Check Proxmox host logs and LXC configuration."
+        fi
     fi
     
     echo ""

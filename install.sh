@@ -573,8 +573,7 @@ configure_igpu_passthrough() {
         cat >> "$lxc_conf" << EOF
 
 # Intel iGPU Passthrough
-lxc.cgroup2.devices.allow: c 226:0 rwm
-lxc.cgroup2.devices.allow: c 226:128 rwm
+lxc.cgroup2.devices.allow: c 226:* rwm
 lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
 
 # Allow unrestricted Apparmor access (required for sysctl and device passthrough)

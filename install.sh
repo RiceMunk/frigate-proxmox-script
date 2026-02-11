@@ -11,7 +11,7 @@ set -euo pipefail
 # GLOBAL VARIABLES
 # ============================================================================
 
-VERSION="1.0.3"
+VERSION="1.0.6"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="/tmp/frigate-install-$(date +%Y%m%d-%H%M%S).log"
 DRY_RUN=false
@@ -39,6 +39,7 @@ CT_NETWORK_TYPE="dhcp"
 CT_IP=""
 CT_GATEWAY=""
 CT_DNS="8.8.8.8"
+# Default (will be updated dynamically during install)
 DEBIAN_TEMPLATE="debian-12-standard_12.12-1_amd64.tar.zst"
 
 # Frigate Configuration
@@ -339,7 +340,14 @@ configure_container() {
             ENABLE_IGPU="yes"
         fi
     else
-        log_warn "Hardware acceleration will be disabled (no compatible GPU detected)."
+        echo ""
+        log_warn "Integrated GPU (iGPU) not detected for hardware-accelerated video decoding."
+        if [ "$DETECTED_CORAL" != "none" ]; then
+            log "Note: Google Coral ($DETECTED_CORAL) WAS detected and will be used for high-speed object detection."
+            log "However, video streams will be decoded using the CPU, which may increase load."
+        else
+            log "If you have an Intel CPU with iGPU, ensure 'HEVC' or 'iGPU' is enabled in BIOS and drivers are installed on the host."
+        fi
         ENABLE_IGPU="no"
     fi
     
@@ -506,12 +514,29 @@ show_configuration_summary() {
 download_debian_template() {
     log_step "Checking for Debian template..."
     
+    log "Updating Proxmox appliance database..."
+    if [ "$DRY_RUN" = false ]; then
+        pveam update || log_warn "Failed to update pveam database. Attempting to proceed..."
+    fi
+
+    log "Searching for latest Debian 12 template..."
+    # Dynamically find the latest Debian 12 standard template
+    local latest_template
+    latest_template=$(pveam available -section system 2>/dev/null | grep "debian-12-standard" | sort -V | tail -n 1 | awk '{print $2}')
+    
+    if [ -n "$latest_template" ]; then
+        DEBIAN_TEMPLATE="$latest_template"
+        log "Selected template: $DEBIAN_TEMPLATE"
+    else
+        log_warn "Could not discover Debian 12 template dynamically. Using fallback: $DEBIAN_TEMPLATE"
+    fi
+    
     if pveam list local 2>/dev/null | grep -q "$DEBIAN_TEMPLATE"; then
         log_success "Debian template already available"
         return
     fi
     
-    log "Downloading Debian 12 template..."
+    log "Downloading $DEBIAN_TEMPLATE..."
     
     if [ "$DRY_RUN" = false ]; then
         pveam download local "$DEBIAN_TEMPLATE" 2>&1 | tee -a "$LOG_FILE" || error_exit "Failed to download template"

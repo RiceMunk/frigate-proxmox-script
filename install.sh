@@ -653,6 +653,64 @@ EOF
     fi
 }
 
+configure_coral_passthrough() {
+    if [ "$DETECTED_CORAL" != "PCIe" ]; then
+        return
+    fi
+    
+    log_step "Configuring Google Coral PCIe passthrough..."
+    
+    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+    
+    if [ "$DRY_RUN" = false ]; then
+        if ! grep -q "apex_0" "$lxc_conf"; then
+            cat >> "$lxc_conf" << EOF
+
+# Google Coral PCIe Passthrough
+lxc.cgroup2.devices.allow: c 120:* rwm
+lxc.mount.entry: /dev/apex_0 dev/apex_0 none bind,optional,create=file
+EOF
+            log_success "Coral PCIe passthrough configured in $lxc_conf"
+        else
+            log "Coral PCIe passthrough already configured in $lxc_conf"
+        fi
+    else
+        log_dry_run "Add Coral PCIe passthrough configuration to $lxc_conf"
+    fi
+}
+
+configure_nvidia_passthrough() {
+    if [ "$SELECTED_GPU_TYPE" != "nvidia" ]; then
+        return
+    fi
+    
+    log_step "Configuring NVIDIA GPU passthrough..."
+    
+    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+    
+    if [ "$DRY_RUN" = false ]; then
+        if ! grep -q "nvidia" "$lxc_conf"; then
+            cat >> "$lxc_conf" << EOF
+
+# NVIDIA GPU Passthrough
+lxc.cgroup2.devices.allow: c 195:* rwm
+lxc.cgroup2.devices.allow: c 508:* rwm
+lxc.cgroup2.devices.allow: c 511:* rwm
+lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
+EOF
+            log_success "NVIDIA GPU passthrough configured in $lxc_conf"
+        else
+            log "NVIDIA GPU passthrough already configured in $lxc_conf"
+        fi
+    else
+        log_dry_run "Add NVIDIA GPU passthrough configuration to $lxc_conf"
+    fi
+}
+
 start_container() {
     log_step "Starting container $CT_ID..."
     
@@ -686,7 +744,7 @@ install_docker() {
     log_step "Installing Docker..."
     
     execute_in_container "apt-get update"
-    execute_in_container "DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl"
+    execute_in_container "DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg"
     execute_in_container "install -m 0755 -d /etc/apt/keyrings"
     execute_in_container "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc"
     execute_in_container "chmod a+r /etc/apt/keyrings/docker.asc"
@@ -700,6 +758,25 @@ install_docker() {
     execute_in_container "systemctl start docker"
     
     log_success "Docker installed"
+}
+
+install_nvidia_toolkit() {
+    if [ "$SELECTED_GPU_TYPE" != "nvidia" ]; then
+        return
+    fi
+    
+    log_step "Installing NVIDIA Container Toolkit..."
+    
+    execute_in_container 'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg'
+    execute_in_container 'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list'
+    
+    execute_in_container "apt-get update"
+    execute_in_container "DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit"
+    
+    execute_in_container "nvidia-ctk runtime configure --runtime=docker"
+    execute_in_container "systemctl restart docker"
+    
+    log_success "NVIDIA Container Toolkit installed"
 }
 
 # ============================================================================
@@ -1093,6 +1170,8 @@ main() {
     download_debian_template
     create_lxc_container
     configure_igpu_passthrough
+    configure_coral_passthrough
+    configure_nvidia_passthrough
     start_container
     
     echo ""
@@ -1101,6 +1180,7 @@ main() {
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     install_docker
+    install_nvidia_toolkit
     
     echo ""
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

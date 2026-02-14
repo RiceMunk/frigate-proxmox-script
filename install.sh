@@ -56,6 +56,8 @@ ROOT_PASSWORD=""
 # Hardware Detection Result Strings
 DETECTED_CPU=""
 DETECTED_GPU="none"
+GPU_TYPES_FOUND=() # Array to store all found GPU types (intel, amd, nvidia)
+SELECTED_GPU_TYPE="none"
 DETECTED_CORAL="none"
 GPU_PRESET="preset-vaapi" # Default to VAAPI (Intel/AMD)
 
@@ -178,26 +180,42 @@ check_hardware() {
     log "CPU: $DETECTED_CPU"
 
     # GPU Detection
+    GPU_TYPES_FOUND=()
+    
+    # Check for Intel/AMD (VAAPI)
     if [ -e "/dev/dri/renderD128" ]; then
         if lspci 2>/dev/null | grep -qi "intel"; then
-            DETECTED_GPU="Intel iGPU"
-            GPU_PRESET="preset-vaapi"
+            GPU_TYPES_FOUND+=("intel")
         elif lspci 2>/dev/null | grep -qi "amd"; then
-            DETECTED_GPU="AMD GPU"
-            GPU_PRESET="preset-vaapi"
+            GPU_TYPES_FOUND+=("amd")
         else
-            DETECTED_GPU="Generic VAAPI (Intel/AMD)"
-            GPU_PRESET="preset-vaapi"
+            GPU_TYPES_FOUND+=("vaapi")
         fi
-    elif command -v nvidia-smi &>/dev/null; then
-        DETECTED_GPU="NVIDIA GPU"
-        GPU_PRESET="preset-nvidia"
+    fi
+
+    # Check for NVIDIA
+    if command -v nvidia-smi &>/dev/null || lspci 2>/dev/null | grep -qi "nvidia"; then
+        GPU_TYPES_FOUND+=("nvidia")
     fi
     
-    # Verify driver existence on host
-    if [ "$DETECTED_GPU" != "none" ] && [[ "$DETECTED_GPU" == *"Intel"* ]] && [ ! -d "/dev/dri" ]; then
-        log_warn "GPU detected but /dev/dri not found! Check BIOS and host drivers."
+    # Set initial DETECTED_GPU based on priority if only one found
+    if [ ${#GPU_TYPES_FOUND[@]} -eq 1 ]; then
+        SELECTED_GPU_TYPE="${GPU_TYPES_FOUND[0]}"
+        case "$SELECTED_GPU_TYPE" in
+            intel) DETECTED_GPU="Intel iGPU"; GPU_PRESET="preset-vaapi" ;;
+            amd) DETECTED_GPU="AMD GPU"; GPU_PRESET="preset-vaapi" ;;
+            nvidia) DETECTED_GPU="NVIDIA GPU"; GPU_PRESET="preset-nvidia" ;;
+            vaapi) DETECTED_GPU="Generic VAAPI"; GPU_PRESET="preset-vaapi" ;;
+        esac
+    elif [ ${#GPU_TYPES_FOUND[@]} -gt 1 ]; then
+        DETECTED_GPU="Multiple (${GPU_TYPES_FOUND[*]})"
+    fi
+    
+    # Verify driver existence on host for Intel
+    if [[ "$DETECTED_GPU" == *"Intel"* ]] && [ ! -d "/dev/dri" ]; then
+        log_warn "Intel GPU detected but /dev/dri not found! Check BIOS and host drivers."
         DETECTED_GPU="none"
+        SELECTED_GPU_TYPE="none"
     fi
     
     if [ "$DETECTED_GPU" != "none" ]; then
@@ -332,10 +350,35 @@ configure_container() {
     fi
     
     echo ""
-    if [ "$DETECTED_GPU" != "none" ]; then
+    if [ ${#GPU_TYPES_FOUND[@]} -gt 1 ]; then
+        log_step "Multiple GPUs detected. Select which one to use for Frigate:"
+        options=()
+        for type in "${GPU_TYPES_FOUND[@]}"; do
+            case "$type" in
+                intel) options+=("Intel iGPU (VAAPI)") ;;
+                amd) options+=("AMD GPU (VAAPI)") ;;
+                nvidia) options+=("NVIDIA GPU (NVDEC/NVENC)") ;;
+                vaapi) options+=("Generic VAAPI") ;;
+            esac
+        done
+        options+=("None (CPU only)")
+        
+        select opt in "${options[@]}"; do
+            case "$opt" in
+                "Intel iGPU (VAAPI)") SELECTED_GPU_TYPE="intel"; DETECTED_GPU="Intel iGPU"; GPU_PRESET="preset-vaapi"; ENABLE_IGPU="yes"; break ;;
+                "AMD GPU (VAAPI)") SELECTED_GPU_TYPE="amd"; DETECTED_GPU="AMD GPU"; GPU_PRESET="preset-vaapi"; ENABLE_IGPU="yes"; break ;;
+                "NVIDIA GPU (NVDEC/NVENC)") SELECTED_GPU_TYPE="nvidia"; DETECTED_GPU="NVIDIA GPU"; GPU_PRESET="preset-nvidia"; ENABLE_IGPU="yes"; break ;;
+                "Generic VAAPI") SELECTED_GPU_TYPE="vaapi"; DETECTED_GPU="Generic VAAPI"; GPU_PRESET="preset-vaapi"; ENABLE_IGPU="yes"; break ;;
+                "None (CPU only)") SELECTED_GPU_TYPE="none"; DETECTED_GPU="none"; ENABLE_IGPU="no"; GPU_PRESET="none"; break ;;
+                *) log_error "Invalid selection" ;;
+            esac
+        done
+    elif [ "$DETECTED_GPU" != "none" ]; then
         read -p "Enable hardware acceleration using $DETECTED_GPU? (Y/n): " enable_hwaccel
         if [[ "$enable_hwaccel" =~ ^[Nn]$ ]]; then
             ENABLE_IGPU="no"
+            SELECTED_GPU_TYPE="none"
+            GPU_PRESET="none"
         else
             ENABLE_IGPU="yes"
         fi
@@ -677,7 +720,7 @@ create_docker_compose() {
     
     local device_config=""
     if [ "$ENABLE_IGPU" = "yes" ]; then
-        if [ "$DETECTED_GPU" = "NVIDIA GPU" ]; then
+        if [ "$SELECTED_GPU_TYPE" = "nvidia" ]; then
             device_config="    deploy:
       resources:
         reservations:
@@ -773,7 +816,7 @@ create_frigate_config() {
   coral:
     type: edgetpu
     device: pci"
-    elif [[ "$DETECTED_GPU" == *"Intel"* ]]; then
+    elif [ "$SELECTED_GPU_TYPE" = "intel" ]; then
         detector_config="detectors:
   ov:
     type: openvino

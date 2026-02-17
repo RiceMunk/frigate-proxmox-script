@@ -265,7 +265,7 @@ pct exec <CT_ID> -- docker logs frigate 2>&1 | grep -i error
 
 ### Option 1: The Easy Way (Script)
 
-Run this single command on your Proxmox host shell:
+Choose the update method that best fits your needs. You can run the script interactively, or skip the prompts entirely by passing your container ID and version.
 
 ##### Interactive
 ```bash
@@ -292,8 +292,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-scri
   --id <CT_ID> \
   --version 0.17.0-rc2
 ```
-
-It will ask for your Container ID and let you pick the version from a list.
 
 ### Option 2: The Manual Way
 

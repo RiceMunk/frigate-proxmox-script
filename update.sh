@@ -87,45 +87,37 @@ if [ -z "$VERSION" ]; then
     # Fetch releases
     RELEASES=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases)
     AVAILABLE_VERSIONS=$(echo "$RELEASES" | grep '"tag_name":' | head -n 10 | cut -d '"' -f 4 | sed 's/^v//')
-    # Identify default version (first available)
-    DEFAULT_VERSION=$(echo "$AVAILABLE_VERSIONS" | head -n 1)
-
+    
     if [ -z "$AVAILABLE_VERSIONS" ]; then
         echo "Warning: Could not fetch versions. Defaulting to manual input."
         read -p "Enter version tag to update to (default: 0.16.4): " VERSION
         VERSION=${VERSION:-0.16.4}
     else
         echo "Available Versions:"
-        PS3="Select a version: "
-        # Use read -r for the menu so we can handle empty input (Enter)
-        select opt in $AVAILABLE_VERSIONS "Custom"; do
-            # handle case where user just hits enter
-            if [ -z "$opt" ] && [ -z "$REPLY" ]; then
-                 VERSION=$DEFAULT_VERSION
-                 echo "Using default version: $VERSION"
-                 break
-            fi
+        # Convert to array for manual indexing
+        mapfile -t VERSION_ARRAY <<< "$AVAILABLE_VERSIONS"
+        for i in "${!VERSION_ARRAY[@]}"; do
+            echo " $((i+1))) ${VERSION_ARRAY[$i]}"
+        done
+        CUSTOM_INDEX=$(( ${#VERSION_ARRAY[@]} + 1 ))
+        echo " $CUSTOM_INDEX) Custom"
 
-            if [ "$opt" = "Custom" ]; then
+        while true; do
+            read -p "Select a version [1-$CUSTOM_INDEX] (default: 1): " choice
+            choice=${choice:-1}
+
+            if [[ "$choice" -eq "$CUSTOM_INDEX" ]]; then
                 read -p "Enter custom version tag: " VERSION
                 [ -n "$VERSION" ] && break
-            elif [ -n "$opt" ]; then
-                VERSION=$opt
+            elif [[ "$choice" -ge 1 && "$choice" -le "${#VERSION_ARRAY[@]}" ]]; then
+                VERSION="${VERSION_ARRAY[$((choice-1))]}"
                 break
             else
-                # If they hit enter without a choice, select doesn't always return empty. 
-                # In some shells, select waits. To be safe, we check if REPLY is empty.
-                if [ -z "$REPLY" ]; then
-                    VERSION=$DEFAULT_VERSION
-                    echo "Using default version: $VERSION"
-                    break
-                fi
                 echo "Invalid selection."
             fi
         done
     fi
 fi
-
 
 # Snapshot handling prompt (only if not already set by flags)
 if [ "$DO_SNAPSHOT" = false ]; then

@@ -285,17 +285,21 @@ The script supports several flags to automate the update process and ensure safe
 
 ##### Examples
 
+**Interactive Update**
 ```bash
-# Basic usage (interactive)
 bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh)
+```
 
-# Update to latest stable with automatic snapshot
+**Update to Latest Stable (with snapshot)**
+```bash
 bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) \
   -i <CT_ID> \
   -v latest \
   -s
+```
 
-# Update to specific version with custom snapshot name
+**Update to Specific Version (with custom snapshot)**
+```bash
 bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) \
   -i <CT_ID> \
   -v 0.17.0-rc2 \

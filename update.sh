@@ -14,19 +14,24 @@ echo "--------------------------"
 
 # Parse arguments
 CT_ID=""
+VERSION=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -c|--id|--container)
             CT_ID="$2"
             shift 2
             ;;
+        -v|--version)
+            VERSION="$2"
+            shift 2
+            ;;
         *)
-            if [[ "$1" =~ ^[0-9]+$ ]]; then
+            if [[ "$1" =~ ^[0-9]+$ ]] && [ -z "$CT_ID" ]; then
                 CT_ID="$1"
-                shift
-            else
-                shift
+            elif [ -z "$VERSION" ] && [[ ! "$1" =~ ^- ]]; then
+                VERSION="$1"
             fi
+            shift
             ;;
     esac
 done
@@ -48,28 +53,30 @@ if ! pct status "$CT_ID" | grep -q "running"; then
 fi
 
 # Fetch Versions
-echo "Fetching latest versions from GitHub..."
-# Fetch releases, grab tag_name, limit to top 10, strip "v" prefix, and format into a list
-AVAILABLE_VERSIONS=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases | grep '"tag_name":' | head -n 10 | cut -d '"' -f 4 | sed 's/^v//')
+if [ -z "$VERSION" ]; then
+    echo "Fetching latest versions from GitHub..."
+    # Fetch releases, grab tag_name, limit to top 10, strip "v" prefix, and format into a list
+    AVAILABLE_VERSIONS=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases | grep '"tag_name":' | head -n 10 | cut -d '"' -f 4 | sed 's/^v//')
 
-if [ -z "$AVAILABLE_VERSIONS" ]; then
-    echo "Warning: Could not fetch versions. Defaulting to manual input."
-    read -p "Enter version tag to update to (default: 0.17.0-rc1): " VERSION
-    VERSION=${VERSION:-0.17.0-rc1}
-else
-    echo "Available Versions:"
-    PS3="Select a version (or choose 'Custom'): "
-    select opt in $AVAILABLE_VERSIONS "Custom"; do
-        if [ "$opt" = "Custom" ]; then
-            read -p "Enter custom version tag: " VERSION
-            [ -n "$VERSION" ] && break
-        elif [ -n "$opt" ]; then
-            VERSION=$opt
-            break
-        else
-            echo "Invalid selection."
-        fi
-    done
+    if [ -z "$AVAILABLE_VERSIONS" ]; then
+        echo "Warning: Could not fetch versions. Defaulting to manual input."
+        read -p "Enter version tag to update to (default: 0.17.0-rc1): " VERSION
+        VERSION=${VERSION:-0.17.0-rc1}
+    else
+        echo "Available Versions:"
+        PS3="Select a version (or choose 'Custom'): "
+        select opt in $AVAILABLE_VERSIONS "Custom"; do
+            if [ "$opt" = "Custom" ]; then
+                read -p "Enter custom version tag: " VERSION
+                [ -n "$VERSION" ] && break
+            elif [ -n "$opt" ]; then
+                VERSION=$opt
+                break
+            else
+                echo "Invalid selection."
+            fi
+        done
+    fi
 fi
 
 echo "Updating container $CT_ID to version $VERSION..."

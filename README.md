@@ -272,26 +272,30 @@ Choose the update method that best fits your needs. You can run the script inter
 bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh)
 ```
 
-##### Update to latest stable
+##### Command Line Flags
+The script supports several flags to automate the update process and ensure safety:
+
+| Flag | Short | Description |
+| :--- | :--- | :--- |
+| `--id` | `-i` | The Proxmox Container ID (e.g., 100) |
+| `--version` | `-v` | Version tag (e.g., `0.17.0-rc2`, `latest`, `beta`) |
+| `--snapshot` | `-s` | Take a snapshot before updating. Optionally provide a name. |
+
+**Examples:**
+
+Update to latest stable with an automatic snapshot:
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) \
-  --id <CT_ID> \
-  --version latest
+bash update.sh -i <CT_ID> -v latest -s
 ```
 
-##### Update to latest beta
+Update to a specific version with a custom snapshot name:
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) \
-  --id <CT_ID> \
-  --version beta
+bash update.sh -i <CT_ID> -v 0.17.0-rc2 -s "Pre-Upgrade Backup"
 ```
 
-##### Update to a specific version
-```bash
-bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) \
-  --id <CT_ID> \
-  --version 0.17.0-rc2
-```
+> [!TIP]
+> If no snapshot flag is used, the script will interactively ask if you'd like to take one before it begins applying changes.
+
 
 ### Option 2: The Manual Way
 

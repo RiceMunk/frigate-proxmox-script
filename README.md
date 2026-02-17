@@ -285,12 +285,12 @@ The script supports several flags to automate the update process and ensure safe
 
 Update to latest stable with an automatic snapshot:
 ```bash
-bash update.sh -i <CT_ID> -v latest -s
+bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) -v latest -i <CT_ID> -s
 ```
 
 Update to a specific version with a custom snapshot name:
 ```bash
-bash update.sh -i <CT_ID> -v 0.17.0-rc2 -s "Pre-Upgrade Backup"
+bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh) -v 0.17.0-rc2 -i <CT_ID> -s "Pre-Upgrade Backup"
 ```
 
 > [!TIP]

@@ -87,10 +87,8 @@ if [ -z "$VERSION" ]; then
     # Fetch releases
     RELEASES=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases)
     AVAILABLE_VERSIONS=$(echo "$RELEASES" | grep '"tag_name":' | head -n 10 | cut -d '"' -f 4 | sed 's/^v//')
-    
-    # Identify latest stable (non-beta, non-rc) for default
-    STABLE_DEFAULT=$(echo "$AVAILABLE_VERSIONS" | grep -vE "beta|rc" | head -n 1)
-    [ -z "$STABLE_DEFAULT" ] && STABLE_DEFAULT=$(echo "$AVAILABLE_VERSIONS" | head -n 1)
+    # Identify default version (first available)
+    DEFAULT_VERSION=$(echo "$AVAILABLE_VERSIONS" | head -n 1)
 
     if [ -z "$AVAILABLE_VERSIONS" ]; then
         echo "Warning: Could not fetch versions. Defaulting to manual input."
@@ -103,8 +101,8 @@ if [ -z "$VERSION" ]; then
         select opt in $AVAILABLE_VERSIONS "Custom"; do
             # handle case where user just hits enter
             if [ -z "$opt" ] && [ -z "$REPLY" ]; then
-                 VERSION=$STABLE_DEFAULT
-                 echo "Using default stable version: $VERSION"
+                 VERSION=$DEFAULT_VERSION
+                 echo "Using default version: $VERSION"
                  break
             fi
 
@@ -118,8 +116,8 @@ if [ -z "$VERSION" ]; then
                 # If they hit enter without a choice, select doesn't always return empty. 
                 # In some shells, select waits. To be safe, we check if REPLY is empty.
                 if [ -z "$REPLY" ]; then
-                    VERSION=$STABLE_DEFAULT
-                    echo "Using default stable version: $VERSION"
+                    VERSION=$DEFAULT_VERSION
+                    echo "Using default version: $VERSION"
                     break
                 fi
                 echo "Invalid selection."
@@ -127,6 +125,7 @@ if [ -z "$VERSION" ]; then
         done
     fi
 fi
+
 
 # Snapshot handling prompt (only if not already set by flags)
 if [ "$DO_SNAPSHOT" = false ]; then
@@ -141,10 +140,10 @@ fi
 
 if [ "$DO_SNAPSHOT" = true ]; then
     if [ -z "$SNAPSHOT_NAME" ]; then
-        SNAPSHOT_NAME="Before-$VERSION-Update"
+        SNAPSHOT_NAME="Before_${VERSION}_Update"
     fi
-    # Proxmox snapshots name: Alphanumeric and dashes only
-    SNAPSHOT_NAME=$(echo "$SNAPSHOT_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+    # Proxmox snapshots name: Alphanumeric, underscores, and dashes only
+    SNAPSHOT_NAME=$(echo "$SNAPSHOT_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
     
     echo "Taking snapshot: $SNAPSHOT_NAME..."
     pct snapshot "$CT_ID" "$SNAPSHOT_NAME" --description "Automated snapshot before update to $VERSION"

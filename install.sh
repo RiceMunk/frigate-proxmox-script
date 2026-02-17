@@ -1210,10 +1210,10 @@ main() {
         fi
         
         if [ -z "$SNAPSHOT_NAME" ]; then
-            SNAPSHOT_NAME="Initial-$resolved_version-Setup"
+            SNAPSHOT_NAME="Initial_${resolved_version}_Setup"
         fi
         # Sanitize
-        SNAPSHOT_NAME=$(echo "$SNAPSHOT_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+        SNAPSHOT_NAME=$(echo "$SNAPSHOT_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
         
         log "Taking snapshot: $SNAPSHOT_NAME..."
         if [ "$DRY_RUN" = false ]; then

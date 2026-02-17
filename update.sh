@@ -7,7 +7,13 @@ set -e
 
 # Colors
 GREEN='\033[0;32m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+error_exit() {
+    echo -e "${RED}Error: $1${NC}"
+    exit 1
+}
 
 echo -e "${GREEN}Frigate LXC Update Script${NC}"
 echo "--------------------------"
@@ -52,7 +58,18 @@ if ! pct status "$CT_ID" | grep -q "running"; then
     exit 1
 fi
 
-# Fetch Versions
+# Handle latest/beta keywords
+if [ "$VERSION" = "latest" ]; then
+    echo "Fetching latest stable version..."
+    VERSION=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases/latest | grep '"tag_name":' | cut -d '"' -f 4 | sed 's/^v//')
+    [ -z "$VERSION" ] && error_exit "Could not fetch latest stable version."
+elif [ "$VERSION" = "beta" ]; then
+    echo "Fetching latest beta version..."
+    VERSION=$(curl -s https://api.github.com/repos/blakeblackshear/frigate/releases | grep -B 15 '"prerelease": true' | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4 | sed 's/^v//')
+    [ -z "$VERSION" ] && error_exit "Could not fetch latest beta version."
+fi
+
+# Fetch Versions (Interactive if not provided or auto-detected)
 if [ -z "$VERSION" ]; then
     echo "Fetching latest versions from GitHub..."
     # Fetch releases, grab tag_name, limit to top 10, strip "v" prefix, and format into a list

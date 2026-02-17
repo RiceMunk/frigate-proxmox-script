@@ -259,10 +259,13 @@ Run this single command on your Proxmox host shell:
 
 ```bash
 # Basic usage (interactive)
-bash -c "$(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh)"
+bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/develop/update.sh)
 
-# Skip ID prompt by passing it as an argument
-bash -c "$(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/main/update.sh)" -- 108
+# Update to latest stable automatically
+bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/develop/update.sh) 108 latest
+
+# Update to latest beta automatically
+bash <(wget -qO- https://raw.githubusercontent.com/saihgupr/frigate-proxmox-script/develop/update.sh) 108 beta
 ```
 
 It will ask for your Container ID and let you pick the version from a list.
